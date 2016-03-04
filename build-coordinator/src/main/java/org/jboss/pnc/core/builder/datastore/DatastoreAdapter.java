@@ -2,13 +2,13 @@
  * JBoss, Home of Professional Open Source.
  * Copyright 2014 Red Hat, Inc., and individual contributors
  * as indicated by the @author tags.
- *
+ * <p/>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p/>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p/>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,6 +26,7 @@ import org.jboss.pnc.model.BuildConfigurationAudited;
 import org.jboss.pnc.model.BuildRecord;
 import org.jboss.pnc.spi.BuildResult;
 import org.jboss.pnc.spi.builddriver.BuildDriverResult;
+import org.jboss.pnc.spi.builddriver.exception.BuildDriverException;
 import org.jboss.pnc.spi.datastore.Datastore;
 import org.jboss.pnc.spi.datastore.DatastoreException;
 import org.jboss.pnc.spi.executor.BuildExecutionConfiguration;
@@ -66,7 +67,7 @@ public class DatastoreAdapter {
 
     /**
      * Get the latest audited revision for the given build configuration ID
-     * 
+     *
      * @param buildConfigurationId
      * @return The latest revision of the given build configuration
      */
@@ -75,43 +76,47 @@ public class DatastoreAdapter {
     }
 
     public void storeResult(BuildTask buildTask, BuildResult buildResult) throws DatastoreException {
-
-        if (!buildResult.getBuildDriverResult().isPresent()) {
-            storeResult(buildTask, new BuildCoordinationException("Trying to store success build with incomplete result. Missing BuildDriverResult."));
-            return;
-        }
-
-        if (!buildResult.getRepositoryManagerResult().isPresent()) {
-            storeResult(buildTask, new BuildCoordinationException("Trying to store success build with incomplete result. Missing RepositoryManagerResult."));
-            return;
-        }
-
-        BuildDriverResult buildDriverResult = buildResult.getBuildDriverResult().get();
-        RepositoryManagerResult repositoryManagerResult = buildResult.getRepositoryManagerResult().get();
-
-        BuildRecord.Builder buildRecordBuilder = initBuildRecordBuilder(buildTask, Optional.of(repositoryManagerResult.getBuildContentId()));
-
-        BuildExecutionConfiguration buildExecutionConfig = buildResult.getBuildExecutionConfiguration().get();
-        buildRecordBuilder.scmRepoURL(buildExecutionConfig.getScmRepoURL());
-        buildRecordBuilder.scmRevision(buildExecutionConfig.getScmRevision());
-
         try {
-            // Build driver results
-            buildRecordBuilder.buildLog(buildDriverResult.getBuildLog());
-            buildRecordBuilder.status(buildDriverResult.getBuildDriverStatus().toBuildStatus());
+            BuildRecord.Builder buildRecordBuilder = initBuildRecordBuilder(buildTask);
+            if (!buildResult.getBuildDriverResult().isPresent()) {
+                if (!buildResult.hasFailed()) {
+                    storeErroneousResult(buildTask,
+                            new BuildCoordinationException("Trying to store success build with incomplete result. Missing BuildDriverResult."));
+                    return;
+                }
+            } else {
+                BuildDriverResult buildDriverResult = buildResult.getBuildDriverResult().get();
+                buildRecordBuilder.buildLog(buildDriverResult.getBuildLog());
+                buildRecordBuilder.status(buildDriverResult.getBuildDriverStatus().toBuildStatus());
+            }
+            if (!buildResult.getRepositoryManagerResult().isPresent()) {
+                if (!buildResult.hasFailed()) {
+                    storeErroneousResult(buildTask, new BuildCoordinationException("Trying to store success build with incomplete result. Missing RepositoryManagerResult."));
+                    return;
+                }
+            } else {
+                RepositoryManagerResult repositoryManagerResult = buildResult.getRepositoryManagerResult().get();
+                buildRecordBuilder.buildContentId(repositoryManagerResult.getBuildContentId());
+                buildRecordBuilder.builtArtifacts(repositoryManagerResult.getBuiltArtifacts());
+                buildRecordBuilder.dependencies(repositoryManagerResult.getDependencies());
+            }
+
+
+            BuildExecutionConfiguration buildExecutionConfig = buildResult.getBuildExecutionConfiguration().get();
+            buildRecordBuilder.scmRepoURL(buildExecutionConfig.getScmRepoURL());
+            buildRecordBuilder.scmRevision(buildExecutionConfig.getScmRevision());
+
             buildRecordBuilder.endTime(Date.from(Instant.now()));
-            buildRecordBuilder.builtArtifacts(repositoryManagerResult.getBuiltArtifacts());
-            buildRecordBuilder.dependencies(repositoryManagerResult.getDependencies());
 
             log.debugf("Storing results of buildTask [%s] to datastore.", buildTask.getId());
             datastore.storeCompletedBuild(buildRecordBuilder, buildTask.getBuildRecordSetIds());
         } catch (Exception e) {
-            storeResult(buildTask, e);
+            storeErroneousResult(buildTask, e);
         }
     }
 
-    public void storeResult(BuildTask buildTask, Throwable e) throws DatastoreException {
-        BuildRecord.Builder buildRecordBuilder = initBuildRecordBuilder(buildTask, Optional.<String>empty());
+    public void storeErroneousResult(BuildTask buildTask, Throwable e) throws DatastoreException {
+        BuildRecord.Builder buildRecordBuilder = initBuildRecordBuilder(buildTask);
         StringWriter stackTraceWriter = new StringWriter();
         PrintWriter stackTracePrinter = new PrintWriter(stackTraceWriter);
         e.printStackTrace(stackTracePrinter);
@@ -127,7 +132,7 @@ public class DatastoreAdapter {
     }
 
     public void storeRejected(BuildTask buildTask) throws DatastoreException {
-        BuildRecord.Builder buildRecordBuilder = initBuildRecordBuilder(buildTask, Optional.<String>empty());
+        BuildRecord.Builder buildRecordBuilder = initBuildRecordBuilder(buildTask);
         buildRecordBuilder.status(REJECTED);
 
         buildRecordBuilder.buildLog(buildTask.getStatusDescription());
@@ -139,12 +144,12 @@ public class DatastoreAdapter {
 
     /**
      * Initialize a new BuildRecord.Builder based on the data contained in the BuildTask.
-     * Note, this must be done inside a transaction because it fetches the BuildRecordSet entities from 
+     * Note, this must be done inside a transaction because it fetches the BuildRecordSet entities from
      * the database.
-     * 
+     *
      * @return The initialized build record builder
      */
-    private BuildRecord.Builder initBuildRecordBuilder(BuildTask buildTask, Optional<String> buildContentId) {
+    private BuildRecord.Builder initBuildRecordBuilder(BuildTask buildTask) {
         BuildRecord.Builder builder = BuildRecord.Builder.newBuilder().id(buildTask.getId())
                 .buildConfigurationAudited(buildTask.getBuildConfigurationAudited())
                 .user(buildTask.getUser())
@@ -152,7 +157,6 @@ public class DatastoreAdapter {
                 .startTime(buildTask.getStartTime())
                 .endTime(buildTask.getEndTime());
 
-        buildContentId.ifPresent((id) -> builder.buildContentId(id));
 
         builder.latestBuildConfiguration(buildTask.getBuildConfiguration());
         if (buildTask.getBuildConfigSetRecordId() != null) {
