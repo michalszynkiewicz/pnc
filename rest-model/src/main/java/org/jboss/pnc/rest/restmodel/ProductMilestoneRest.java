@@ -32,7 +32,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.jboss.pnc.rest.utils.StreamHelper.nullableStreamOf;
-import static org.jboss.pnc.rest.utils.Utility.performIfNotNull;
 
 @XmlRootElement(name = "ProductMilestone")
 public class ProductMilestoneRest implements GenericRestEntity<Integer> {
@@ -63,6 +62,8 @@ public class ProductMilestoneRest implements GenericRestEntity<Integer> {
 
     private Integer productReleaseId;
 
+    private String pushLog;
+
     public ProductMilestoneRest() {
     }
 
@@ -86,6 +87,7 @@ public class ProductMilestoneRest implements GenericRestEntity<Integer> {
         if (productMilestone.getProductRelease() != null) {
             this.productReleaseId = productMilestone.getProductRelease().getId();
         }
+        this.pushLog = productMilestone.getPushLog();
     }
 
     @Override

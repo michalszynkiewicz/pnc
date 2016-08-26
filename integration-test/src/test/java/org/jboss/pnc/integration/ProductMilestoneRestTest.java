@@ -50,10 +50,6 @@ public class ProductMilestoneRestTest extends AbstractTest {
 
     public static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-    private static final String PRODUCT_MILESTONE_REST_ENDPOINT = "/pnc-rest/rest/product-milestones/";
-    private static final String PRODUCT_MILESTONE_PRODUCTVERSION_REST_ENDPOINT = "/pnc-rest/rest/product-milestones/product-versions/%d";
-    private static final String PRODUCT_MILESTONE_SPECIFIC_REST_ENDPOINT = PRODUCT_MILESTONE_REST_ENDPOINT + "%d";
-
     private static int productId;
     private static int productVersionId;
     private static int productMilestoneId;
@@ -82,7 +78,7 @@ public class ProductMilestoneRestTest extends AbstractTest {
     @InSequence(2)
     public void prepareProductMilestoneId() {
         given().headers(testHeaders)
-                .contentType(ContentType.JSON).port(getHttpPort()).when().get(String.format(PRODUCT_MILESTONE_REST_ENDPOINT))
+                .contentType(ContentType.JSON).port(getHttpPort()).when().get(PRODUCT_MILESTONE_REST_ENDPOINT)
                 .then().statusCode(200)
                 .body(JsonMatcher.containsJsonAttribute(FIRST_CONTENT_ID, value -> productMilestoneId = Integer.valueOf(value)));
     }

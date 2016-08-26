@@ -20,6 +20,7 @@ package org.jboss.pnc.rest.restmodel.causeway;
 import lombok.Data;
 import org.jboss.pnc.rest.restmodel.bpm.BpmNotificationRest;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -31,12 +32,22 @@ import java.util.List;
 public class BrewPushMilestoneResultRest extends BpmNotificationRest {
     private int milestoneId;
 
-    private List<BuildImportResultRest> builds;
+    private List<BuildImportResultRest> builds = new ArrayList<>();
     private CallbackResultRest callback;
 
     @Override
     public String getEventType() {
         return "BREW_PUSH_COMPLETED";
+    }
+
+    public boolean isSuccessful() {
+        return !builds.isEmpty()
+                && callback.getStatus() == 201
+                && allBuildsSuccessful();
+    }
+
+    private boolean allBuildsSuccessful() {
+        return builds.stream().allMatch(r -> r.getStatus() == BuildImportStatus.SUCCESSFUL);
     }
 }
 

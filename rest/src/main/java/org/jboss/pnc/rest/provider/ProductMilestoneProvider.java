@@ -17,11 +17,15 @@
  */
 package org.jboss.pnc.rest.provider;
 
+import org.jboss.pnc.bpm.BpmEventType;
+import org.jboss.pnc.bpm.BpmManager;
+import org.jboss.pnc.bpm.task.BpmBrewPushTask;
 import org.jboss.pnc.model.Artifact;
 import org.jboss.pnc.model.ProductMilestone;
 import org.jboss.pnc.rest.provider.collection.CollectionInfo;
-import org.jboss.pnc.rest.restmodel.BuildRecordRest;
 import org.jboss.pnc.rest.restmodel.ProductMilestoneRest;
+import org.jboss.pnc.rest.restmodel.bpm.BpmNotificationRest;
+import org.jboss.pnc.rest.restmodel.causeway.BrewPushMilestoneResultRest;
 import org.jboss.pnc.rest.validation.ValidationBuilder;
 import org.jboss.pnc.rest.validation.exceptions.ValidationException;
 import org.jboss.pnc.rest.validation.groups.WhenUpdating;
@@ -30,6 +34,9 @@ import org.jboss.pnc.spi.datastore.repositories.PageInfoProducer;
 import org.jboss.pnc.spi.datastore.repositories.ProductMilestoneRepository;
 import org.jboss.pnc.spi.datastore.repositories.SortInfoProducer;
 import org.jboss.pnc.spi.datastore.repositories.api.RSQLPredicateProducer;
+import org.jboss.pnc.spi.exception.CoreException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.ejb.Stateless;
 import javax.inject.Inject;
@@ -40,15 +47,21 @@ import static org.jboss.pnc.spi.datastore.predicates.ProductMilestonePredicates.
 @Stateless
 public class ProductMilestoneProvider extends AbstractProvider<ProductMilestone, ProductMilestoneRest> {
 
-    ArtifactRepository artifactRepository;
+    private static final Logger log = LoggerFactory.getLogger(ProductMilestoneProvider.class);
+
+    private ArtifactRepository artifactRepository;
+    private BpmManager bpmManager;
 
     @Inject
-    public ProductMilestoneProvider(ProductMilestoneRepository productMilestoneRepository,
+    public ProductMilestoneProvider(
+            ProductMilestoneRepository productMilestoneRepository,
+            BpmManager bpmManager,
             ArtifactRepository artifactRepository,
             RSQLPredicateProducer rsqlPredicateProducer,
             SortInfoProducer sortInfoProducer, PageInfoProducer pageInfoProducer) {
         super(productMilestoneRepository, rsqlPredicateProducer, sortInfoProducer, pageInfoProducer);
         this.artifactRepository = artifactRepository;
+        this.bpmManager = bpmManager;
     }
 
     // needed for EJB/CDI
@@ -91,4 +104,48 @@ public class ProductMilestoneProvider extends AbstractProvider<ProductMilestone,
         repository.save(milestone);
     }
 
+    @Override
+    public void update(Integer id, ProductMilestoneRest restEntity) throws ValidationException {
+        restEntity.setId(id);
+        validateBeforeUpdating(id, restEntity);
+        ProductMilestone milestone = toDBModel().apply(restEntity);
+
+        if (restEntity.getEndDate() != null) {
+            triggerBrewPush(milestone);
+        }
+        repository.save(milestone);
+    }
+
+    private <T  extends BpmNotificationRest> void triggerBrewPush(ProductMilestone milestone) {
+        milestone.appendToPushLog("Starting brew push\n");
+        try {
+            BpmBrewPushTask releaseTask = new BpmBrewPushTask(milestone);
+            releaseTask.addListener(BpmEventType.BREW_PUSH_COMPLETED, this::onBuildComplete);
+            bpmManager.startTask(releaseTask);
+            milestone.appendToPushLog("Brew push task started\n");
+        } catch (CoreException e) {
+            milestone.appendToPushLog("Brew push BPM task creation failed. Check log for more details " + e.getMessage() + "\n");
+            log.error("Error trying to start brew push task for milestone: {}", milestone.getId(), e);
+        }
+    }
+
+    private void onBuildComplete(BrewPushMilestoneResultRest result) {
+        int milestoneId = result.getMilestoneId();
+        ProductMilestone milestone = repository.queryById(milestoneId);
+        milestone.appendToPushLog(describeCompletedPush(result));
+    }
+
+    private String describeCompletedPush(BrewPushMilestoneResultRest result) {
+        boolean success = result.isSuccessful();
+        /// mstodo!!!!
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append("Brew push ").append(success? "FAILED" : "SUCCEEDED").append("\n");
+        stringBuilder.append("Import details:\n").append(result).append("\n");
+//        if (!success) {
+//            stringBuilder.append("FAILED TO IMPORT:\n").append(result.getBrewBuildIds()).append("\n");
+//        }
+//        stringBuilder.append("View the results in brew at: ").append(result.getUrl()).append("\n");
+
+        return stringBuilder.toString();
+    }
 }

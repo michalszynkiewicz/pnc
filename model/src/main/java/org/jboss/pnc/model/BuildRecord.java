@@ -153,7 +153,7 @@ public class BuildRecord implements GenericEntity<Integer> {
     @Basic(fetch = FetchType.LAZY)
     private String buildLog;
 
-    @Enumerated(value = EnumType.STRING)
+    @Enumerated(EnumType.STRING)
     private BuildStatus status;
 
     @Getter

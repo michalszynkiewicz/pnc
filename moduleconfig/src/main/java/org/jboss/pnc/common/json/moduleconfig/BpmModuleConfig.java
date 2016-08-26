@@ -42,6 +42,7 @@ public class BpmModuleConfig extends AbstractModuleConfig {
     private final String daBaseUrl;
     private String deploymentId;
     private String componentBuildProcessId;
+    private String releaseProcessId;
     private String bcCreationProcessId;
     private String communityBuild;
     private String versionAdjust;
@@ -51,6 +52,7 @@ public class BpmModuleConfig extends AbstractModuleConfig {
             @JsonProperty("bpmInstanceUrl") String bpmInstanceUrl,
             @JsonProperty("deploymentId") String deploymentId,
             @JsonProperty("componentBuildProcessId") String componentBuildProcessId,
+            @JsonProperty("releaseProcessId") String releaseProcessId,
             @JsonProperty("bcCreationProcessId") String bcCreationProcessId,
             @JsonProperty("pncBaseUrl") String pncBaseUrl,
             @JsonProperty("jenkinsBaseUrl") String jenkinsBaseUrl,
@@ -64,6 +66,7 @@ public class BpmModuleConfig extends AbstractModuleConfig {
         this.password = password;
         this.deploymentId = deploymentId;
         this.componentBuildProcessId = componentBuildProcessId;
+        this.releaseProcessId = releaseProcessId;
         this.bcCreationProcessId = bcCreationProcessId;
         this.bpmInstanceUrl = bpmInstanceUrl;
         this.pncBaseUrl = pncBaseUrl;
@@ -107,6 +110,10 @@ public class BpmModuleConfig extends AbstractModuleConfig {
         return bcCreationProcessId;
     }
 
+    public String getReleaseProcessId() {
+        return releaseProcessId;
+    }
+
     public String getPncBaseUrl() {
         return pncBaseUrl;
     }
@@ -148,6 +155,7 @@ public class BpmModuleConfig extends AbstractModuleConfig {
                 ", deploymentId='" + deploymentId + '\'' +
                 ", bcCreationProcessId='" + bcCreationProcessId + '\'' +
                 ", componentBuildProcessId='" + componentBuildProcessId + '\'' +
+                ", releaseProcessId='" + releaseProcessId + '\'' +
                 ", communityBuild='" + communityBuild + '\'' +
                 ", versionAdjust='" + versionAdjust + '\'' +
                 '}';

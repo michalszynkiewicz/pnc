@@ -22,6 +22,7 @@ import lombok.ToString;
 import org.jboss.pnc.rest.restmodel.bpm.BpmNotificationRest;
 import org.jboss.pnc.rest.restmodel.bpm.BpmStringMapNotificationRest;
 import org.jboss.pnc.rest.restmodel.bpm.BuildResultRest;
+import org.jboss.pnc.rest.restmodel.causeway.BrewPushMilestoneResultRest;
 
 import static java.util.Objects.requireNonNull;
 
@@ -33,11 +34,17 @@ import static java.util.Objects.requireNonNull;
  * When adding a new one, do not forget to update {@link BpmEventType#events}
  * or otherwise {@link BpmEventType#valueOf(String)} would not work.
  *
+ * TODO: replace with enum ?
+ *
  * @author Jakub Senko
  */
 @EqualsAndHashCode(of = "name")
 @ToString
 public final class BpmEventType<T extends BpmNotificationRest> {
+
+
+    public static final BpmEventType<BrewPushMilestoneResultRest> BREW_PUSH_COMPLETED
+            = new BpmEventType<>("MILESTONE_RELEASE_COMPLETED", BrewPushMilestoneResultRest.class);
 
     public static final BpmEventType<BuildResultRest> BUILD_COMPLETE
             = new BpmEventType<>("BUILD_COMPLETE", BuildResultRest.class);
