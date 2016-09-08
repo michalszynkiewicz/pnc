@@ -6,14 +6,14 @@
       "configs": [
         {
           "@module-config":"authentication-config",
-          "username":"${env.PNC_EXT_OAUTH_USERNAME}",
-          "password":"${env.PNC_EXT_OAUTH_PASSWORD}",
-          "baseAuthUrl":"${env.PNC_EXT_REST_BASE_URL}"
+          "username":"pnc-admin",
+          "password":"testme",
+          "baseAuthUrl":"https://pnc-keycloak-vip.host.stage.eng.bos.redhat.com/auth"
         },
         {
           "@module-config":"bpm-config",
-          "username":"${env.PNC_BPM_USERNAME}",
-          "password":"${env.PNC_BPM_PASSWORD}"
+          "username":"newcastle",
+          "password":"redhat"
         }
       ]
     }
