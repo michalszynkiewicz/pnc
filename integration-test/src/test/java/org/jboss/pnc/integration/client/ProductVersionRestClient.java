@@ -17,13 +17,41 @@
  */
 package org.jboss.pnc.integration.client;
 
+import com.jayway.restassured.response.Response;
+import org.jboss.pnc.integration.client.util.RestResponse;
+import org.jboss.pnc.model.BuildConfigurationSet;
+import org.jboss.pnc.rest.restmodel.BuildConfigurationSetRest;
 import org.jboss.pnc.rest.restmodel.ProductVersionRest;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
 
 public class ProductVersionRestClient extends AbstractRestClient<ProductVersionRest> {
 
     public static final String PRODUCT_VERSION_REST_ENDPOINT = "/pnc-rest/rest/product-versions/";
 
+    public static final String BUILD_CONFIGURATION_SETS_SUB_ENDPOINT = "/build-configuration-sets/";
+
     public ProductVersionRestClient() {
         super(PRODUCT_VERSION_REST_ENDPOINT, ProductVersionRest.class);
+    }
+
+//    public RestResponse<T> update(int id, T obj, boolean withValidation) {
+//        Response response = put(collectionUrl + id, obj);
+//
+//        if(withValidation) {
+//            response.then().statusCode(200);
+//        }
+//
+//        return new RestResponse<>(response, get(id, withValidation).getValue());
+//    }
+
+    public RestResponse<List<BuildConfigurationSetRest>> updateBuildConfigurationSets(int id, List<BuildConfigurationSetRest> buildConfigurationSetRests) {
+        Response response = put(PRODUCT_VERSION_REST_ENDPOINT + id + BUILD_CONFIGURATION_SETS_SUB_ENDPOINT, buildConfigurationSetRests);
+
+        response.then().statusCode(200);
+
+        return new RestResponse<>(response, get(id).getValue().getBuildConfigurationSets());
     }
 }
