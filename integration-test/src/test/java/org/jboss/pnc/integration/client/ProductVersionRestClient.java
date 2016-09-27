@@ -37,20 +37,16 @@ public class ProductVersionRestClient extends AbstractRestClient<ProductVersionR
         super(PRODUCT_VERSION_REST_ENDPOINT, ProductVersionRest.class);
     }
 
-//    public RestResponse<T> update(int id, T obj, boolean withValidation) {
-//        Response response = put(collectionUrl + id, obj);
-//
-//        if(withValidation) {
-//            response.then().statusCode(200);
-//        }
-//
-//        return new RestResponse<>(response, get(id, withValidation).getValue());
-//    }
+    public RestResponse<List<BuildConfigurationSetRest>> updateBuildConfigurationSets(int id, List<BuildConfigurationSetRest> buildConfigurationSetRest) {
+        return updateBuildConfigurationSets(id, buildConfigurationSetRest, true);
+    }
 
-    public RestResponse<List<BuildConfigurationSetRest>> updateBuildConfigurationSets(int id, List<BuildConfigurationSetRest> buildConfigurationSetRests) {
+    public RestResponse<List<BuildConfigurationSetRest>> updateBuildConfigurationSets(int id, List<BuildConfigurationSetRest> buildConfigurationSetRests, boolean withValidation) {
         Response response = put(PRODUCT_VERSION_REST_ENDPOINT + id + BUILD_CONFIGURATION_SETS_SUB_ENDPOINT, buildConfigurationSetRests);
 
-        response.then().statusCode(200);
+        if (withValidation) {
+            response.then().statusCode(200);
+        }
 
         return new RestResponse<>(response, get(id).getValue().getBuildConfigurationSets());
     }

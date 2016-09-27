@@ -27,12 +27,14 @@ import org.jboss.pnc.integration.client.util.RestResponse;
 import org.jboss.pnc.integration.deployments.Deployments;
 import org.jboss.pnc.integration.env.IntegrationTestEnv;
 import org.jboss.pnc.integration.utils.AuthUtils;
+import org.jboss.pnc.model.BuildConfiguration;
 import org.jboss.pnc.model.BuildConfigurationSet;
 import org.jboss.pnc.model.Product;
 import org.jboss.pnc.model.ProductVersion;
 import org.jboss.pnc.rest.provider.BuildConfigurationSetProvider;
 import org.jboss.pnc.rest.provider.ProductVersionProvider;
 import org.jboss.pnc.rest.restmodel.BuildConfigurationSetRest;
+import org.jboss.pnc.rest.restmodel.GenericRestEntity;
 import org.jboss.pnc.rest.restmodel.ProductRest;
 import org.jboss.pnc.rest.restmodel.ProductVersionRest;
 import org.jboss.pnc.spi.datastore.repositories.BuildConfigurationSetRepository;
@@ -41,6 +43,7 @@ import org.jboss.pnc.spi.datastore.repositories.ProductVersionRepository;
 import org.jboss.pnc.test.category.ContainerTest;
 import org.jboss.shrinkwrap.api.spec.EnterpriseArchive;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -66,32 +69,24 @@ public class ProductVersionRestTest {
     private static ProductVersionRestClient productVersionRestClient;
 
     @Inject
-    private ProductVersionProvider productVersionProvider;
-
-    @Inject
     private ProductVersionRepository productVersionRepository;
 
     @Inject
     private BuildConfigurationSetRepository buildConfigurationSetRepository;
 
     @Inject
-    private BuildConfigurationSetProvider buildConfigurationSetProvider;
-
-    @Inject
     private ProductRepository productRepository;
 
 
     private Product product1;
-    private ProductVersionRest productVersionRest1;
+    private ProductVersion productVersion1;
+    private ProductVersion productVersion2;
     private BuildConfigurationSet buildConfigurationSet1;
     private BuildConfigurationSet buildConfigurationSet2;
     private BuildConfigurationSet buildConfigurationSet3;
     private BuildConfigurationSet buildConfigurationSet4;
+    private BuildConfigurationSet buildConfigurationSet5;
 
-
-
-
-    private static AtomicBoolean dbInitialised = new AtomicBoolean(false);
 
     @Deployment
     public static EnterpriseArchive deploy() {
@@ -114,76 +109,51 @@ public class ProductVersionRestTest {
             productVersionRestClient = new ProductVersionRestClient();
         }
 
-        if (!dbInitialised.getAndSet(true)) {
-            Product product1 = productRepository.save(Product.Builder.newBuilder()
-                    .name("product-version-rest-test-product-1")
-                    .build());
 
-            ProductVersion productVersion1 = productVersionRepository.save(ProductVersion.Builder.newBuilder()
-                    .product(product1)
-                    .version("1.0")
-                    .build());
+        product1 = productRepository.save(Product.Builder.newBuilder().name("product-version-rest-test-product-1").build());
+
+        productVersion1 = productVersionRepository.save(ProductVersion.Builder.newBuilder().product(product1).version("1.0").build());
+        productVersion2 = productVersionRepository.save(ProductVersion.Builder.newBuilder().product(product1).version("2.0").build());
 
 
-            BuildConfigurationSet bcset1 = buildConfigurationSetRepository.save(BuildConfigurationSet.Builder.newBuilder()
-                    .name("product-version-test-bcset-1")
-                    .productVersion(productVersion1)
-                    .build());
+        buildConfigurationSet1 = buildConfigurationSetRepository.save(BuildConfigurationSet.Builder.newBuilder()
+                .name("product-version-test-bcset-1")
+                .productVersion(productVersion1)
+                .build());
 
-            BuildConfigurationSet bcset2 = buildConfigurationSetRepository.save(BuildConfigurationSet.Builder.newBuilder()
-                    .name("product-version-test-bcset-2")
-                    .productVersion(productVersion1)
-                    .build());
+        buildConfigurationSet2 = buildConfigurationSetRepository.save(BuildConfigurationSet.Builder.newBuilder()
+                .name("product-version-test-bcset-2")
+                .productVersion(productVersion1)
+                .build());
 
-//        BuildConfigurationSet bcset3 = buildConfigurationSetRepository.save(BuildConfigurationSet.Builder.newBuilder()
-//                .name("product-version-test-bcset-3")
-//                .build());
-//
-//        BuildConfigurationSet bcset4 = buildConfigurationSetRepository.save(BuildConfigurationSet.Builder.newBuilder()
-//                .name("product-version-test-bcset-4")
-//                .build());
-
-            productVersionRest1 = new ProductVersionRest(productVersion1);
-        }
-    }
-
-    public void after() {
-
-    }
-
-    @Test
-    public void sanityTest() {
-        System.out.println(productVersionRestClient.all());
-
-        System.out.println(productVersionRestClient.get(3, true).getValue().getBuildConfigurationSets().get(0).getName());
-    }
-
-    @Test
-    public void shouldUpdateBuildConfigurationSets() {
-        //given
-        BuildConfigurationSetRest bcset3 = new BuildConfigurationSetRest(buildConfigurationSetRepository.save(BuildConfigurationSet.Builder.newBuilder()
+        buildConfigurationSet3 = buildConfigurationSetRepository.save(BuildConfigurationSet.Builder.newBuilder()
                 .name("product-version-test-bcset-3")
-                .build()));
+                .build());
 
-        BuildConfigurationSetRest bcset4 = new BuildConfigurationSetRest(buildConfigurationSetRepository.save(BuildConfigurationSet.Builder.newBuilder()
+        buildConfigurationSet4 = buildConfigurationSetRepository.save(BuildConfigurationSet.Builder.newBuilder()
                 .name("product-version-test-bcset-4")
-                .build()));
+                .build());
 
-        List<BuildConfigurationSetRest> buildConfigurationSetRests = new LinkedList<>();
-        buildConfigurationSetRests.add(bcset3);
-        buildConfigurationSetRests.add(bcset4);
-
-        //when
-        RestResponse<List<BuildConfigurationSetRest>> response  = productVersionRestClient.updateBuildConfigurationSets(
-                productVersionRest1.getId(), buildConfigurationSetRests);
-
-
-        //then
-        assertThat(response.hasValue()).isTrue();
-
-        assertThat(response.getValue().stream().map(BuildConfigurationSetRest::getId).collect(Collectors.toList()))
-                .containsOnly(bcset3.getId(), bcset4.getId());
+        buildConfigurationSet5 = buildConfigurationSetRepository.save(BuildConfigurationSet.Builder.newBuilder()
+                .name("product-version-test-bcset-5")
+                .productVersion(productVersion2)
+                .build());
     }
+
+    @After
+    public void after() {
+        buildConfigurationSetRepository.delete(buildConfigurationSet1.getId());
+        buildConfigurationSetRepository.delete(buildConfigurationSet2.getId());
+        buildConfigurationSetRepository.delete(buildConfigurationSet3.getId());
+        buildConfigurationSetRepository.delete(buildConfigurationSet4.getId());
+        buildConfigurationSetRepository.delete(buildConfigurationSet5.getId());
+
+        productVersionRepository.delete(productVersion1.getId());
+        productVersionRepository.delete(productVersion2.getId());
+
+        productRepository.delete(product1.getId());
+    }
+
 
     @Test
     public void shouldGetSpecificProductVersion() throws Exception {
@@ -226,4 +196,56 @@ public class ProductVersionRestTest {
         assertThat(updateResponse.hasValue()).isEqualTo(true);
         assertThat(updateResponse.getValue().getVersion()).isEqualTo("100.0");
     }
+
+    @Test
+    public void shouldUpdateBuildConfigurationSets() {
+        //given
+        List<BuildConfigurationSetRest> buildConfigurationSetRests = new LinkedList<>();
+        buildConfigurationSetRests.add(new BuildConfigurationSetRest(buildConfigurationSet3));
+        buildConfigurationSetRests.add(new BuildConfigurationSetRest(buildConfigurationSet4));
+
+        //when
+        RestResponse<List<BuildConfigurationSetRest>> response  = productVersionRestClient.updateBuildConfigurationSets(
+                productVersion1.getId(), buildConfigurationSetRests);
+
+        //then
+        assertThat(response.getValue().stream().map(BuildConfigurationSetRest::getId).collect(Collectors.toList()))
+                .containsOnly(buildConfigurationSet3.getId(), buildConfigurationSet4.getId());
+    }
+
+    @Test
+    public void shouldNotUpdateBuildConfigurationSetsWhenOneIsAlreadyAsssociatedWithAnotherProductVersion() {
+
+        //given
+        List<BuildConfigurationSetRest> buildConfigurationSetRests = new LinkedList<>();
+        buildConfigurationSetRests.add(new BuildConfigurationSetRest(buildConfigurationSet4));
+        buildConfigurationSetRests.add(new BuildConfigurationSetRest(buildConfigurationSet5));
+
+        //when
+        RestResponse<List<BuildConfigurationSetRest>> response  = productVersionRestClient.updateBuildConfigurationSets(
+                productVersion1.getId(), buildConfigurationSetRests, false);
+
+        //then
+        assertThat(response.getRestCallResponse().getStatusCode()).isEqualTo(400);
+        assertThat(response.getValue().stream().map(BuildConfigurationSetRest::getId).collect(Collectors.toList()))
+                .containsOnly(buildConfigurationSet1.getId(), buildConfigurationSet2.getId());
+    }
+
+    @Test
+    public void shouldNotUpdateBuildConfigurationSetsWithNonExistantBuildConfigurationSet() {
+        //given
+        List<BuildConfigurationSetRest> buildConfigurationSetRests = new LinkedList<>();
+        buildConfigurationSetRests.add(new BuildConfigurationSetRest(BuildConfigurationSet.Builder.newBuilder().id(600).name("i-dont-exist").build()));
+
+
+        //when
+        RestResponse<List<BuildConfigurationSetRest>> response  = productVersionRestClient.updateBuildConfigurationSets(
+                productVersion1.getId(), buildConfigurationSetRests, false);
+
+        //then
+        assertThat(response.getRestCallResponse().getStatusCode()).isEqualTo(400);
+        assertThat(response.getValue().stream().map(BuildConfigurationSetRest::getId).collect(Collectors.toList()))
+                .containsOnly(buildConfigurationSet1.getId(), buildConfigurationSet2.getId());
+    }
+
 }

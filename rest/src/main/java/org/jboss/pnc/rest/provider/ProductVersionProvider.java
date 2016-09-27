@@ -18,20 +18,26 @@
 package org.jboss.pnc.rest.provider;
 
 import com.google.common.collect.Sets;
+import org.jboss.pnc.model.BuildConfiguration;
 import org.jboss.pnc.model.BuildConfigurationSet;
 import org.jboss.pnc.model.ProductVersion;
 import org.jboss.pnc.rest.provider.collection.CollectionInfo;
 import org.jboss.pnc.rest.restmodel.BuildConfigurationSetRest;
 import org.jboss.pnc.rest.restmodel.ProductVersionRest;
+import org.jboss.pnc.rest.validation.ValidationBuilder;
+import org.jboss.pnc.rest.validation.exceptions.InvalidEntityException;
 import org.jboss.pnc.rest.validation.exceptions.ValidationException;
+import org.jboss.pnc.rest.validation.groups.WhenUpdating;
 import org.jboss.pnc.spi.datastore.repositories.BuildConfigurationSetRepository;
 import org.jboss.pnc.spi.datastore.repositories.PageInfoProducer;
 import org.jboss.pnc.spi.datastore.repositories.ProductVersionRepository;
 import org.jboss.pnc.spi.datastore.repositories.SortInfoProducer;
 import org.jboss.pnc.spi.datastore.repositories.api.RSQLPredicateProducer;
 
-import javax.ejb.Stateless;
+import javax.annotation.Resource;
+import javax.ejb.*;
 import javax.inject.Inject;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -70,30 +76,36 @@ public class ProductVersionProvider extends AbstractProvider<ProductVersion, Pro
     public void updateBuildConfigurationSets(Integer id, List<BuildConfigurationSetRest> bcsRestModels) throws ValidationException {
         ProductVersion productVersion = repository.queryById(id);
 
+        Set<BuildConfigurationSet> addedDbModels = new HashSet<>();
 
-        Set<BuildConfigurationSet> bcsDbModels = bcsRestModels.stream().map(restModel -> {
+        for (BuildConfigurationSetRest restModel : bcsRestModels) {
             BuildConfigurationSet dbModel = buildConfigurationSetRepository.queryById(restModel.getId());
-            dbModel.setProductVersion(productVersion);
-            return buildConfigurationSetRepository.save(dbModel);
-        }).collect(Collectors.toSet());
 
-        Sets.difference(productVersion.getBuildConfigurationSets(), bcsDbModels).forEach(x -> {
+            ValidationBuilder.validateObject(dbModel, WhenUpdating.class).validateCondition(
+                    dbModel != null, "Invalid BuildConfigurationSet"
+            );
+
+            ValidationBuilder.validateObject(dbModel, WhenUpdating.class).validateCondition(
+                    dbModel.getProductVersion() == null || dbModel.getProductVersion().getId().equals(productVersion.getId()),
+                    String.format("BuildConfigurationSet: '%s' is already associated with a different Product Version", dbModel.getName()));
+
+            addedDbModels.add(dbModel);
+        }
+
+        Set<BuildConfigurationSet> removedDbModels = Sets.difference(productVersion.getBuildConfigurationSets(), addedDbModels);
+
+        productVersion.setBuildConfigurationSets(addedDbModels);
+        validateBeforeUpdating(id, new ProductVersionRest(productVersion));
+
+        removedDbModels.forEach(x -> {
             x.setProductVersion(null);
             buildConfigurationSetRepository.save(x);
         });
-
-        productVersion.setBuildConfigurationSets(bcsDbModels);
-
+        addedDbModels.forEach(x -> {
+            x.setProductVersion(productVersion);
+            buildConfigurationSetRepository.save(x);
+        });
         repository.save(productVersion);
-
-
-
-//        ProductVersionRest version = getSpecific(id);
-//        version.setBuildConfigurationSets(buildConfigurationSetRests);
-//
-//        // TODO validate before saving
-//
-//        repository.save(toDBModel().apply(version));
     }
 
     @Override
@@ -104,6 +116,23 @@ public class ProductVersionProvider extends AbstractProvider<ProductVersion, Pro
     @Override
     protected Function<? super ProductVersionRest, ? extends ProductVersion> toDBModel() {
         return productVersionRest -> productVersionRest.toDBEntityBuilder().build();        
+    }
+
+    private void validateBeforeUpdate(Integer productVersionId, Set<BuildConfigurationSet> sets) throws InvalidEntityException {
+        for (BuildConfigurationSet set : sets) {
+            validateBeforeUpdate(productVersionId, sets);
+        }
+    }
+
+    private void validateBeforeUpdate(Integer productVersionId, BuildConfigurationSet set) throws InvalidEntityException {
+        BuildConfigurationSetRest restModel = new BuildConfigurationSetRest(set);
+        ValidationBuilder.validateObject(set, WhenUpdating.class).validateCondition(
+                set != null, "Invalid BuildConfigurationSet"
+        );
+
+        ValidationBuilder.validateObject(restModel, WhenUpdating.class).validateCondition(
+                set.getProductVersion() == null || set.getProductVersion().getId().equals(productVersionId),
+                String.format("BuildConfigurationSet: '%s' is already associated with a different Product Version", restModel.getName()));
     }
 
 }
