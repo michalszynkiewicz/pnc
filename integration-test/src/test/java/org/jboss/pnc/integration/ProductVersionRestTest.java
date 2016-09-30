@@ -17,6 +17,8 @@
  */
 package org.jboss.pnc.integration;
 
+import com.google.common.base.Charsets;
+import com.google.common.io.CharStreams;
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.arquillian.junit.InSequence;
@@ -41,6 +43,8 @@ import org.jboss.pnc.spi.datastore.repositories.BuildConfigurationSetRepository;
 import org.jboss.pnc.spi.datastore.repositories.ProductRepository;
 import org.jboss.pnc.spi.datastore.repositories.ProductVersionRepository;
 import org.jboss.pnc.test.category.ContainerTest;
+import org.jboss.shrinkwrap.api.asset.ByteArrayAsset;
+import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.spec.EnterpriseArchive;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.After;
@@ -52,6 +56,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.lang.invoke.MethodHandles;
 import java.util.LinkedList;
 import java.util.List;
@@ -98,6 +104,25 @@ public class ProductVersionRestTest {
         war.addClass(IntegrationTestEnv.class);
         war.addClass(RestResponse.class);
         war.addPackage(AuthUtils.class.getPackage());
+        try {
+
+            ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+            InputStream stream = classLoader.getResourceAsStream("auth.properties");
+
+            logger.info(CharStreams.toString(new InputStreamReader(stream, Charsets.UTF_8)));
+
+            war.addAsResource(new ByteArrayAsset(stream), "auth.properties");
+
+            InputStream is = AuthUtils.class.getResourceAsStream("/keycloak.json");
+            logger.info(CharStreams.toString(new InputStreamReader(is, Charsets.UTF_8)));
+
+            war.addAsResource(new ByteArrayAsset(is), "keycloak.json");
+
+        } catch (Exception e) {
+            System.err.println(e.toString());
+        }
+
+        logger.info(war.toString(true));
 
         logger.info(enterpriseArchive.toString(true));
         return enterpriseArchive;
