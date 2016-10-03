@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.jayway.restassured.RestAssured.given;
+import static org.jboss.pnc.common.Configuration.CONFIG_SYSPROP;
 import static org.jboss.pnc.integration.env.IntegrationTestEnv.getHttpPort;
 
 public abstract class AbstractRestClient<T> {
@@ -89,7 +90,10 @@ public abstract class AbstractRestClient<T> {
 
     protected void initAuth() throws IOException, ConfigurationParseException {
         if (AuthUtils.authEnabled() && !authInitialized) {
+            String originalConfig = System.getProperty(CONFIG_SYSPROP);
+            System.setProperty(CONFIG_SYSPROP, "src/test/resources/pnc-config.json");
             AuthenticationModuleConfig config = new Configuration().getModuleConfig(new PncConfigProvider<>(AuthenticationModuleConfig.class));
+            System.setProperty(CONFIG_SYSPROP, originalConfig);
             InputStream is = AbstractRestClient.class.getResourceAsStream("/keycloak.json");
             ExternalAuthentication ea = new ExternalAuthentication(is);
             authProvider = ea.authenticate(config.getUsername(), config.getPassword());
